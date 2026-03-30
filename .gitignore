@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.roundtrip.pdf
+*.from_pdf.html
+*.from_pdf.ns.html
+analysis_png/
+client_protocol_*.html
+client_protocol_*.pdf
+protocol_cliente_*.html

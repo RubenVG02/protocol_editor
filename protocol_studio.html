@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BD AbSeq Protocol Studio</title>
+  <link rel="stylesheet" href="studio.css" />
+</head>
+<body>
+  <div class="bg-glow" aria-hidden="true"></div>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">Protocol Automation</p>
+        <h1>BD AbSeq Client Protocol Studio</h1>
+      </div>
+      <p class="topbar-note">Editable view over the original protocol with PDF-ready output.</p>
+    </header>
+
+    <main class="layout">
+      <aside class="controls" aria-label="Protocol configuration">
+        <h2>Case configuration</h2>
+
+        <label for="panelType">Panel type</label>
+        <select id="panelType" name="panelType">
+          <option value="10">10-plex</option>
+          <option value="20" selected>20-plex</option>
+          <option value="40">40-plex</option>
+          <option value="custom">Custom (1-40)</option>
+        </select>
+
+        <label for="antibodyCount">Number of antibodies (N)</label>
+        <input id="antibodyCount" name="antibodyCount" type="number" min="1" max="40" step="1" value="20" />
+        <p class="hint">N is used to automatically calculate the conditional MasterMix row.</p>
+
+        <label for="washCount">Number of post-labeling washes</label>
+        <select id="washCount" name="washCount">
+          <option value="2" selected>2 washes</option>
+          <option value="3">3 washes (includes optional step 7)</option>
+        </select>
+
+        <label class="check-row" for="includeFcBlock">
+          <input id="includeFcBlock" name="includeFcBlock" type="checkbox" checked />
+          Include optional Fc Block step
+        </label>
+
+        <label class="check-row" for="lowAbundance">
+          <input id="lowAbundance" name="lowAbundance" type="checkbox" />
+          Low-abundance sample (&lt;20,000)
+        </label>
+
+        <label class="check-row" for="rbcContamination">
+          <input id="rbcContamination" name="rbcContamination" type="checkbox" />
+          Sample with red blood cell contamination
+        </label>
+
+        <div class="button-row">
+          <button id="applyBtn" type="button" class="btn btn-primary">Apply changes</button>
+          <button id="resetBtn" type="button" class="btn btn-ghost">Reset</button>
+        </div>
+
+        <div class="button-row">
+          <button id="downloadHtmlBtn" type="button" class="btn btn-secondary">Download final HTML</button>
+          <button id="printPdfBtn" type="button" class="btn btn-secondary">Print / Save PDF</button>
+        </div>
+
+        <div class="calc-card" aria-live="polite">
+          <h3>Calculated MasterMix</h3>
+          <p id="calcLine1"></p>
+          <p id="calcLine2"></p>
+          <p id="calcLine3"></p>
+        </div>
+
+        <p id="status" class="status">Loading base protocol...</p>
+      </aside>
+
+      <section class="preview" aria-label="Protocol preview">
+        <div class="preview-head">
+          <h2>Preview</h2>
+          <p>The base protocol layout is preserved while conditional rules are applied.</p>
+        </div>
+        <iframe id="previewFrame" title="Protocol preview"></iframe>
+      </section>
+    </main>
+  </div>
+
+  <script src="studio.js"></script>
+</body>
+</html>
