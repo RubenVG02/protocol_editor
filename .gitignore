@@ -8,3 +8,6 @@ analysis_png/
 client_protocol_*.html
 client_protocol_*.pdf
 protocol_cliente_*.html
+node_modules/
+package-lock.json
+.DS_Store
