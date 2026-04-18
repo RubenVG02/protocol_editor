@@ -2,7 +2,6 @@ const embeddedTemplateIds = getEmbeddedTemplateIds();
 const protocolCatalog = createProtocolCatalog();
 const protocolById = Object.fromEntries(protocolCatalog.map((protocol) => [protocol.id, protocol]));
 const protocolCatalogOrder = new Map(protocolCatalog.map((protocol, index) => [protocol.id, index]));
-const catalogNameCollator = new Intl.Collator(undefined, { sensitivity: "base", numeric: true });
 
 const state = {
   sourceFilter: "all",
@@ -11,15 +10,12 @@ const state = {
   readyOnly: false,
   selectedProtocolId: protocolCatalog[0] ? protocolCatalog[0].id : "",
   activeProtocolId: "",
-  loadedProtocolId: "",
-  loadingProtocolId: "",
-  templatePreviewProtocolId: "",
   activeOverlay: "",
   overlayReturnFocus: null,
   pendingState: null,
   fieldRefs: {},
   rawValues: {},
-  previewZoom: null,
+  previewMode: "fit",
   previewRefreshTimer: 0,
   pdfLab: {
     pdfDoc: null,
@@ -39,19 +35,11 @@ const state = {
 let pdfJsLoadingPromise = null;
 let marketPreviewObserver = null;
 
-function rebuildProtocolCatalogOrder() {
-  protocolCatalogOrder.clear();
-  protocolCatalog.forEach((protocol, index) => {
-    if (protocol && protocol.id) {
-      protocolCatalogOrder.set(protocol.id, index);
-    }
-  });
-}
-
 const refs = {
   workspace: document.getElementById("workspace"),
   exploreTemplatesBtn: document.getElementById("exploreTemplatesBtn"),
   openPdfLabBtn: document.getElementById("openPdfLabBtn"),
+  focusPreviewBtn: document.getElementById("focusPreviewBtn"),
 
   marketplacePanel: document.getElementById("marketplacePanel"),
   closeMarketplaceBtn: document.getElementById("closeMarketplaceBtn"),
@@ -62,18 +50,6 @@ const refs = {
   catalogCount: document.getElementById("catalogCount"),
   catalogStats: document.getElementById("catalogStats"),
   catalogList: document.getElementById("catalogList"),
-  templatePreviewPanel: document.getElementById("templatePreviewPanel"),
-  closeTemplatePreviewBtn: document.getElementById("closeTemplatePreviewBtn"),
-  templatePreviewKicker: document.getElementById("templatePreviewKicker"),
-  templatePreviewTitle: document.getElementById("templatePreviewTitle"),
-  templatePreviewDescription: document.getElementById("templatePreviewDescription"),
-  templatePreviewSourceLine: document.getElementById("templatePreviewSourceLine"),
-  templatePreviewReadinessLine: document.getElementById("templatePreviewReadinessLine"),
-  templatePreviewMeta: document.getElementById("templatePreviewMeta"),
-  templatePreviewHighlights: document.getElementById("templatePreviewHighlights"),
-  templatePreviewTags: document.getElementById("templatePreviewTags"),
-  templatePreviewFrame: document.getElementById("templatePreviewFrame"),
-  templatePreviewUseBtn: document.getElementById("templatePreviewUseBtn"),
 
   pdfLabPanel: document.getElementById("pdfLabPanel"),
   closePdfLabBtn: document.getElementById("closePdfLabBtn"),
@@ -109,9 +85,8 @@ const refs = {
 
   downloadHtmlBtn: document.getElementById("downloadHtmlBtn"),
   printPdfBtn: document.getElementById("printPdfBtn"),
-  previewZoomOutBtn: document.getElementById("previewZoomOutBtn"),
-  previewZoomInBtn: document.getElementById("previewZoomInBtn"),
-  previewAutoFitBtn: document.getElementById("previewAutoFitBtn"),
+  fitPreviewBtn: document.getElementById("fitPreviewBtn"),
+  actualPreviewBtn: document.getElementById("actualPreviewBtn"),
   openMarketplaceFromPreviewBtn: document.getElementById("openMarketplaceFromPreviewBtn"),
 
   summaryTitle: document.getElementById("summaryTitle"),
@@ -137,12 +112,11 @@ init();
 
 function init() {
   bindEvents();
-  syncMarketplaceDensity();
   syncCatalogControls();
   renderSourceFilterChips();
   renderCatalog();
   setSummary("Calculated values", ["", "", ""]);
-  syncPreviewControls();
+  syncPreviewButtons();
 
   if (protocolCatalog.length === 0) {
     setStatus("No templates registered.", true);
@@ -172,9 +146,6 @@ function bindEvents() {
   safeOn(refs.closeMarketplaceBtn, "click", () => {
     setOverlayState("marketplace", false);
   });
-  safeOn(refs.closeTemplatePreviewBtn, "click", () => {
-    setOverlayState("template-preview", false);
-  });
 
   safeOn(refs.closePdfLabBtn, "click", () => {
     setOverlayState("pdf-lab", false);
@@ -185,9 +156,6 @@ function bindEvents() {
       const target = node.dataset.closeOverlay;
       if (target === "marketplace") {
         setOverlayState("marketplace", false);
-      }
-      if (target === "template-preview") {
-        setOverlayState("template-preview", false);
       }
       if (target === "pdf-lab") {
         setOverlayState("pdf-lab", false);
@@ -201,7 +169,7 @@ function bindEvents() {
   });
 
   safeOn(refs.catalogSort, "change", () => {
-    state.sortMode = normalizeCatalogSortMode(refs.catalogSort.value);
+    state.sortMode = refs.catalogSort.value || "recommended";
     renderCatalog();
   });
 
@@ -244,29 +212,24 @@ function bindEvents() {
 
   safeOn(refs.catalogList, "click", onCatalogListClick);
   safeOn(refs.catalogList, "keydown", onCatalogListKeydown);
-  safeOn(refs.templatePreviewUseBtn, "click", useTemplateFromPreview);
 
-  safeOn(refs.previewZoomOutBtn, "click", () => {
-    const currentZoom = Number.isFinite(state.previewZoom)
-      ? state.previewZoom
-      : getCurrentPreviewFitZoom();
-    state.previewZoom = clamp(currentZoom * 0.9, 0.45, 1.6);
-    syncPreviewControls();
+  safeOn(refs.focusPreviewBtn, "click", () => {
+    refs.workspace.classList.toggle("is-preview-focus");
+    refs.focusPreviewBtn.textContent = refs.workspace.classList.contains("is-preview-focus")
+      ? "Show Editor"
+      : "Focus Preview";
     queuePreviewRefresh();
   });
 
-  safeOn(refs.previewZoomInBtn, "click", () => {
-    const currentZoom = Number.isFinite(state.previewZoom)
-      ? state.previewZoom
-      : getCurrentPreviewFitZoom();
-    state.previewZoom = clamp(currentZoom * 1.1, 0.45, 1.6);
-    syncPreviewControls();
+  safeOn(refs.fitPreviewBtn, "click", () => {
+    state.previewMode = "fit";
+    syncPreviewButtons();
     queuePreviewRefresh();
   });
 
-  safeOn(refs.previewAutoFitBtn, "click", () => {
-    state.previewZoom = null;
-    syncPreviewControls();
+  safeOn(refs.actualPreviewBtn, "click", () => {
+    state.previewMode = "actual";
+    syncPreviewButtons();
     queuePreviewRefresh();
   });
 
@@ -280,9 +243,6 @@ function bindEvents() {
   safeOn(refs.printPdfBtn, "click", printCurrentPreview);
 
   safeOn(refs.frame, "load", handlePreviewFrameLoaded);
-  safeOn(refs.templatePreviewFrame, "load", () => {
-    fitMarketPreviewFrame(refs.templatePreviewFrame);
-  });
 
   window.addEventListener("resize", () => {
     queuePreviewRefresh();
@@ -292,71 +252,22 @@ function bindEvents() {
     }
   });
 
-  document.addEventListener("keydown", onGlobalKeydown);
+  document.addEventListener("keydown", (event) => {
+    if (event.key !== "Escape") {
+      return;
+    }
+
+    if (!refs.pdfLabPanel.hidden) {
+      setOverlayState("pdf-lab", false);
+      return;
+    }
+
+    if (!refs.marketplacePanel.hidden) {
+      setOverlayState("marketplace", false);
+    }
+  });
 
   bindPdfLabEvents();
-}
-
-function getTopVisibleOverlay() {
-  if (!refs.templatePreviewPanel.hidden) {
-    return "template-preview";
-  }
-  if (!refs.pdfLabPanel.hidden) {
-    return "pdf-lab";
-  }
-  if (!refs.marketplacePanel.hidden) {
-    return "marketplace";
-  }
-  return "";
-}
-
-function onGlobalKeydown(event) {
-  if (event.key === "Escape") {
-    if (event.repeat) {
-      event.preventDefault();
-      return;
-    }
-
-    const topOverlay = getTopVisibleOverlay();
-    if (topOverlay) {
-      event.preventDefault();
-      event.stopPropagation();
-      setOverlayState(topOverlay, false);
-    }
-    return;
-  }
-
-  // Don't swallow shortcuts while the user is typing in a form field.
-  if (event.metaKey || event.ctrlKey || event.altKey) return;
-  const target = event.target;
-  if (target && target instanceof HTMLElement) {
-    const tag = target.tagName;
-    if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || target.isContentEditable) {
-      return;
-    }
-  }
-
-  // Ignore shortcuts while an overlay is open (the user is already in a modal
-  // context). They should feel like "quick access" actions from the main app.
-  const overlayOpen = !refs.pdfLabPanel.hidden || !refs.marketplacePanel.hidden || !refs.templatePreviewPanel.hidden;
-  if (overlayOpen) return;
-
-  switch (event.key.toLowerCase()) {
-    case "t":
-      event.preventDefault();
-      setOverlayState("marketplace", true);
-      break;
-    case "i":
-      event.preventDefault();
-      setOverlayState("pdf-lab", true);
-      break;
-    case "a":
-      event.preventDefault();
-      if (refs.applyBtn) refs.applyBtn.click();
-      break;
-    default:
-      break;
-  }
 }
 
 function bindPdfLabEvents() {
@@ -418,12 +329,7 @@ function safeOn(node, eventName, handler) {
 }
 
 function setOverlayState(name, isOpen) {
-  const panel =
-    name === "marketplace"
-      ? refs.marketplacePanel
-      : name === "template-preview"
-        ? refs.templatePreviewPanel
-        : refs.pdfLabPanel;
+  const panel = name === "marketplace" ? refs.marketplacePanel : refs.pdfLabPanel;
   if (!panel) {
     return;
   }
@@ -437,28 +343,12 @@ function setOverlayState(name, isOpen) {
     window.requestAnimationFrame(() => {
       if (name === "marketplace") {
         refs.catalogSearch?.focus();
-      } else if (name === "template-preview") {
-        refs.templatePreviewUseBtn?.focus();
       } else {
         refs.pdfUploadInput?.focus();
       }
     });
   } else {
     panel.hidden = true;
-
-    if (name === "marketplace" && !refs.templatePreviewPanel.hidden) {
-      refs.templatePreviewPanel.hidden = true;
-      state.templatePreviewProtocolId = "";
-    } else if (name === "template-preview") {
-      state.templatePreviewProtocolId = "";
-      refs.templatePreviewUseBtn.classList.remove("is-loading");
-      refs.templatePreviewUseBtn.textContent = "Use Template";
-      if (refs.templatePreviewFrame) {
-        refs.templatePreviewFrame.removeAttribute("src");
-        refs.templatePreviewFrame.srcdoc = "";
-        refs.templatePreviewFrame.dataset.previewKind = "";
-      }
-    }
 
     if (state.activeOverlay === name) {
       const returnFocus = state.overlayReturnFocus;
@@ -470,59 +360,17 @@ function setOverlayState(name, isOpen) {
     }
   }
 
-  const anyOpen = !refs.marketplacePanel.hidden || !refs.templatePreviewPanel.hidden || !refs.pdfLabPanel.hidden;
+  const anyOpen = !refs.marketplacePanel.hidden || !refs.pdfLabPanel.hidden;
   document.body.style.overflow = anyOpen ? "hidden" : "";
-  syncOverlayHierarchy();
-}
-
-function syncOverlayHierarchy() {
-  const marketplaceVisible = !refs.marketplacePanel.hidden;
-  const previewVisible = !refs.templatePreviewPanel.hidden;
-  refs.marketplacePanel.classList.toggle("is-underlay", marketplaceVisible && previewVisible);
-}
-
-function normalizeCatalogSortMode(mode) {
-  const normalized = String(mode || "").trim().toLowerCase();
-  if (normalized === "name-asc" || normalized === "name-az" || normalized === "a-z") {
-    return "name-asc";
-  }
-  if (normalized === "name-desc" || normalized === "name-za" || normalized === "z-a") {
-    return "name-desc";
-  }
-  return "recommended";
 }
 
 function syncCatalogControls() {
-  const normalizedSortMode = normalizeCatalogSortMode(state.sortMode);
-  if (state.sortMode !== normalizedSortMode) {
-    state.sortMode = normalizedSortMode;
-  }
-
-  if (refs.catalogSearch && refs.catalogSearch.value !== state.searchText) {
-    refs.catalogSearch.value = state.searchText;
-  }
-
   if (refs.catalogSort) {
-    refs.catalogSort.value = normalizedSortMode;
+    refs.catalogSort.value = state.sortMode;
   }
 
   if (refs.catalogReadyOnly) {
-    refs.catalogReadyOnly.checked = Boolean(state.readyOnly);
-  }
-
-  renderSourceFilterChips();
-}
-
-// Hide advanced filters (sort / ready-only toggle / clear / stats) while the
-// catalog is small. They add noise without adding value for <= 4 templates.
-function syncMarketplaceDensity() {
-  const compact = protocolCatalog.length <= 4;
-  const controlRow = document.querySelector("#marketplacePanel .market-control-row");
-  if (controlRow) {
-    controlRow.hidden = compact;
-  }
-  if (refs.catalogStats) {
-    refs.catalogStats.hidden = compact;
+    refs.catalogReadyOnly.checked = state.readyOnly;
   }
 }
 
@@ -537,6 +385,7 @@ function clearCatalogFilters() {
   }
 
   syncCatalogControls();
+  renderSourceFilterChips();
   renderCatalog();
 }
 
@@ -547,7 +396,7 @@ function onCatalogListClick(event) {
 
   const selectBtn = event.target.closest("[data-select-protocol]");
   if (selectBtn) {
-    openTemplatePreview(selectBtn.dataset.selectProtocol || "");
+    selectProtocol(selectBtn.dataset.selectProtocol || "");
     return;
   }
 
@@ -559,7 +408,7 @@ function onCatalogListClick(event) {
 
   const card = event.target.closest("[data-card-select-protocol]");
   if (card && !event.target.closest("button")) {
-    openTemplatePreview(card.dataset.cardSelectProtocol || "");
+    selectProtocol(card.dataset.cardSelectProtocol || "");
   }
 }
 
@@ -582,41 +431,7 @@ function onCatalogListKeydown(event) {
   }
 
   event.preventDefault();
-  openTemplatePreview(card.dataset.cardSelectProtocol || "");
-}
-
-function openTemplatePreview(protocolId) {
-  const protocol = protocolById[protocolId];
-  if (!protocol) return;
-  state.templatePreviewProtocolId = protocol.id;
-  renderTemplatePreviewOverlay(protocol);
-  setOverlayState("template-preview", true);
-}
-
-function useTemplateFromPreview() {
-  const protocolId = state.templatePreviewProtocolId || state.selectedProtocolId;
-  if (!protocolId) return;
-
-  const protocol = protocolById[protocolId];
-  if (!protocol || !protocolCanLoad(protocol)) return;
-
-  const sheet = refs.templatePreviewPanel?.querySelector(".template-preview-sheet");
-  refs.templatePreviewUseBtn.disabled = true;
-  refs.templatePreviewUseBtn.classList.add("is-loading");
-  refs.templatePreviewUseBtn.textContent = "Applying Template...";
-  if (sheet) {
-    sheet.classList.add("is-committing");
-  }
-
-  window.setTimeout(() => {
-    if (sheet) {
-      sheet.classList.remove("is-committing");
-    }
-    refs.templatePreviewUseBtn.classList.remove("is-loading");
-    refs.templatePreviewUseBtn.textContent = "Use Template";
-    setOverlayState("template-preview", false);
-    loadProtocol(protocolId);
-  }, 240);
+  selectProtocol(card.dataset.cardSelectProtocol || "");
 }
 
 function renderSourceFilterChips() {
@@ -630,8 +445,6 @@ function renderSourceFilterChips() {
 }
 
 function renderCatalog() {
-  syncCatalogControls();
-
   const filtered = getFilteredCatalog();
   const filterSummary = [];
 
@@ -726,75 +539,6 @@ function renderCatalogStats(filtered) {
   });
 }
 
-function renderTemplatePreviewOverlay(protocol) {
-  if (!protocol) return;
-
-  refs.templatePreviewKicker.textContent =
-    protocol.source === "official" ? "Official Template" : "Internal Template";
-  refs.templatePreviewTitle.textContent = protocol.label;
-  refs.templatePreviewDescription.textContent = protocol.description;
-  refs.templatePreviewSourceLine.textContent = `Source: ${
-    protocol.source === "official" ? "Official (Scomix)" : "Internal"
-  }`;
-  refs.templatePreviewReadinessLine.textContent = `Availability: ${
-    protocol.availability === "ready" ? "Ready to use" : "Planned / coming soon"
-  }`;
-
-  refs.templatePreviewMeta.innerHTML = "";
-  [
-    `Owner: ${protocol.owner}`,
-    `Version: ${protocol.version}`,
-    `Status: ${protocol.availability === "ready" ? "Ready" : "Planned"}`,
-    `Editable fields: ${protocol.parameters ? protocol.parameters.length : 0}`,
-  ].forEach((line) => {
-    const pill = document.createElement("span");
-    pill.className = "template-preview-pill";
-    pill.textContent = line;
-    refs.templatePreviewMeta.appendChild(pill);
-  });
-
-  refs.templatePreviewHighlights.innerHTML = "";
-  const highlights = [
-    protocol.availability === "ready"
-      ? "Fully available in the workspace."
-      : "Preview available; template is not yet loadable.",
-    protocol.parameters && protocol.parameters.length > 0
-      ? `${protocol.parameters.length} editable parameters available.`
-      : "No editable parameters in this template.",
-    protocol.tags && protocol.tags.length
-      ? `Primary tags: ${protocol.tags.slice(0, 3).join(", ")}.`
-      : "General-purpose workflow template.",
-  ];
-  highlights.forEach((line) => {
-    const item = document.createElement("li");
-    item.textContent = line;
-    refs.templatePreviewHighlights.appendChild(item);
-  });
-
-  refs.templatePreviewTags.innerHTML = "";
-  protocol.tags.slice(0, 6).forEach((tag) => {
-    const tagNode = document.createElement("span");
-    tagNode.className = "market-tag";
-    tagNode.textContent = tag;
-    refs.templatePreviewTags.appendChild(tagNode);
-  });
-
-  const canLoad = protocolCanLoad(protocol);
-  refs.templatePreviewUseBtn.disabled = !canLoad;
-  refs.templatePreviewUseBtn.textContent = canLoad ? "Use Template" : "Template Not Available Yet";
-  refs.templatePreviewUseBtn.classList.remove("is-loading");
-
-  const source = getMarketPreviewSource(protocol);
-  refs.templatePreviewFrame.dataset.previewKind = source.kind;
-  if (source.kind === "src") {
-    refs.templatePreviewFrame.removeAttribute("srcdoc");
-    refs.templatePreviewFrame.src = source.value || "";
-  } else {
-    refs.templatePreviewFrame.removeAttribute("src");
-    refs.templatePreviewFrame.srcdoc = source.value || "";
-  }
-}
-
 function getFilteredCatalog() {
   let filtered =
     state.sourceFilter === "all"
@@ -819,24 +563,13 @@ function getFilteredCatalog() {
 
 function sortCatalog(protocols) {
   const sorted = [...protocols];
-  const sortMode = normalizeCatalogSortMode(state.sortMode);
 
-  const compareByLabel = (left, right) => {
-    const leftLabel = String(left?.label || left?.id || "");
-    const rightLabel = String(right?.label || right?.id || "");
-    const byLabel = catalogNameCollator.compare(leftLabel, rightLabel);
-    if (byLabel !== 0) {
-      return byLabel;
-    }
-    return catalogNameCollator.compare(String(left?.id || ""), String(right?.id || ""));
-  };
-
-  if (sortMode === "name-asc") {
-    return sorted.sort(compareByLabel);
+  if (state.sortMode === "name-asc") {
+    return sorted.sort((left, right) => left.label.localeCompare(right.label));
   }
 
-  if (sortMode === "name-desc") {
-    return sorted.sort((left, right) => compareByLabel(right, left));
+  if (state.sortMode === "name-desc") {
+    return sorted.sort((left, right) => right.label.localeCompare(left.label));
   }
 
   return sorted.sort((left, right) => {
@@ -852,25 +585,13 @@ function sortCatalog(protocols) {
       return leftSourceRank - rightSourceRank;
     }
 
-    const leftOrder = protocolCatalogOrder.has(left.id)
-      ? protocolCatalogOrder.get(left.id)
-      : Number.MAX_SAFE_INTEGER;
-    const rightOrder = protocolCatalogOrder.has(right.id)
-      ? protocolCatalogOrder.get(right.id)
-      : Number.MAX_SAFE_INTEGER;
-
-    if (leftOrder !== rightOrder) {
-      return leftOrder - rightOrder;
-    }
-
-    return compareByLabel(left, right);
+    return (protocolCatalogOrder.get(left.id) || 0) - (protocolCatalogOrder.get(right.id) || 0);
   });
 }
 
 function createMarketCard(protocol) {
   const card = document.createElement("article");
   card.className = "market-card";
-  card.classList.add(`is-${protocol.source}`);
   card.classList.add(protocol.availability === "ready" ? "is-ready" : "is-planned");
   if (state.selectedProtocolId === protocol.id) {
     card.classList.add("is-selected");
@@ -886,54 +607,73 @@ function createMarketCard(protocol) {
   );
 
   const previewShell = document.createElement("div");
-  previewShell.className = "market-card-preview-shell";
-  previewShell.classList.add(`is-${protocol.source}`);
-  if (protocol.availability === "planned") {
-    previewShell.classList.add("is-planned");
-  }
+  previewShell.className = "market-card-preview-shell is-ready";
+  previewShell.style.display = "flex";
+  previewShell.style.justifyContent = "center";
+  previewShell.style.alignItems = "center";
+  previewShell.style.paddingTop = "16px";
 
-  const thumbGlow = document.createElement("div");
-  thumbGlow.className = "market-thumb-glow";
-  ["blob-1", "blob-2", "blob-3"].forEach((blobClass) => {
-    const blob = document.createElement("span");
-    blob.className = `market-thumb-blob ${blobClass}`;
-    thumbGlow.appendChild(blob);
-  });
+  // Generate a mini-SVG representing the generic first page of the protocol
+  const svgNS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(svgNS, "svg");
+  svg.setAttribute("viewBox", "0 0 210 297");
+  svg.style.width = "110px";
+  svg.style.height = "auto";
+  svg.style.boxShadow = "var(--shadow-sm)";
+  svg.style.background = "#fff";
+  svg.style.borderRadius = "2px";
+  svg.style.transform = "translateY(8px)"; // give it a slight overlap effect
 
-  const thumbPage = document.createElement("div");
-  thumbPage.className = "market-thumb-page";
-  const thumbPageHead = document.createElement("div");
-  thumbPageHead.className = "market-thumb-page-head";
-  const thumbBrand = document.createElement("span");
-  thumbBrand.className = "market-thumb-page-brand";
-  thumbBrand.textContent = protocol.source === "official" ? "BD" : "INT";
-  const thumbKicker = document.createElement("span");
-  thumbKicker.textContent = protocol.tags[0] || "Template";
-  thumbPageHead.appendChild(thumbBrand);
-  thumbPageHead.appendChild(thumbKicker);
+  // Generic Logo/Header Area
+  const logo = document.createElementNS(svgNS, "circle");
+  logo.setAttribute("cx", "30");
+  logo.setAttribute("cy", "40");
+  logo.setAttribute("r", "10");
+  logo.setAttribute("fill", "var(--gray-800)");
+  svg.appendChild(logo);
 
-  const thumbTitle = document.createElement("p");
-  thumbTitle.className = "market-thumb-page-title";
-  thumbTitle.textContent =
-    protocol.label.length > 32 ? `${protocol.label.slice(0, 29)}...` : protocol.label;
+  const headerText = document.createElementNS(svgNS, "rect");
+  headerText.setAttribute("x", "50");
+  headerText.setAttribute("y", "35");
+  headerText.setAttribute("width", "50");
+  headerText.setAttribute("height", "10");
+  headerText.setAttribute("rx", "2");
+  headerText.setAttribute("fill", "var(--gray-800)");
+  svg.appendChild(headerText);
 
-  const thumbBody = document.createElement("div");
-  thumbBody.className = "market-thumb-page-body";
-  [false, false, true].forEach((isShortLine) => {
-    const line = document.createElement("span");
-    line.className = isShortLine ? "market-thumb-page-line short" : "market-thumb-page-line";
-    thumbBody.appendChild(line);
-  });
+  // Centered Title Lines
+  const title1 = document.createElementNS(svgNS, "rect");
+  title1.setAttribute("x", "45");
+  title1.setAttribute("y", "120");
+  title1.setAttribute("width", "120");
+  title1.setAttribute("height", "12");
+  title1.setAttribute("rx", "2");
+  title1.setAttribute("fill", "var(--gray-800)");
+  svg.appendChild(title1);
+
+  const title2 = document.createElementNS(svgNS, "rect");
+  title2.setAttribute("x", "60");
+  title2.setAttribute("y", "140");
+  title2.setAttribute("width", "90");
+  title2.setAttribute("height", "10");
+  title2.setAttribute("rx", "2");
+  title2.setAttribute("fill", "var(--gray-600)");
+  svg.appendChild(title2);
+
+  // Bottom Line
+  const bottomLine = document.createElementNS(svgNS, "rect");
+  bottomLine.setAttribute("x", "20");
+  bottomLine.setAttribute("y", "260");
+  bottomLine.setAttribute("width", "170");
+  bottomLine.setAttribute("height", "1");
+  bottomLine.setAttribute("fill", "var(--gray-300)");
+  svg.appendChild(bottomLine);
 
   const previewOverlay = document.createElement("div");
   previewOverlay.className = "market-card-preview-overlay";
-  previewOverlay.textContent = "Quick Preview";
+  previewOverlay.textContent = protocol.availability === "ready" ? "Live preview" : "Concept preview";
 
-  thumbPage.appendChild(thumbPageHead);
-  thumbPage.appendChild(thumbTitle);
-  thumbPage.appendChild(thumbBody);
-  previewShell.appendChild(thumbGlow);
-  previewShell.appendChild(thumbPage);
+  previewShell.appendChild(svg);
   previewShell.appendChild(previewOverlay);
 
   const head = document.createElement("div");
@@ -1004,11 +744,11 @@ function createMarketCard(protocol) {
   if (protocolCanLoad(protocol)) {
     if (state.activeProtocolId === protocol.id) {
       loadBtn.className = "btn btn-soft";
-      loadBtn.textContent = "Using";
+      loadBtn.textContent = "Active";
       loadBtn.disabled = true;
     } else {
       loadBtn.className = "btn btn-primary";
-      loadBtn.textContent = "Use Template";
+      loadBtn.textContent = "Load";
     }
   } else {
     loadBtn.className = "btn btn-soft";
@@ -1088,40 +828,33 @@ function hydrateMarketPreviewFrame(frame) {
 }
 
 function fitMarketPreviewFrame(frame) {
-  if (!canAccessPreviewFrameDocument(frame)) {
-    return;
-  }
-
   try {
     const doc = frame.contentDocument;
     if (!doc || !doc.body) {
       return;
     }
-    const isTemplatePreview = frame.id === "templatePreviewFrame";
 
     const primarySurface = isolateMarketPreviewFirstPage(doc);
     ensureMarketPreviewHostStyle(doc);
 
     doc.body.style.zoom = "1";
-    if (isTemplatePreview) {
-      doc.documentElement.style.overflow = "hidden";
-      doc.body.style.overflow = "hidden";
-    }
 
-    const surfaceWidth = getPreviewSurfaceWidth(primarySurface);
-    const surfaceHeight = getPreviewSurfaceHeight(primarySurface);
-    const contentWidth = isTemplatePreview
-      ? Math.max(surfaceWidth || doc.documentElement.scrollWidth || doc.body.scrollWidth, 680)
-      : Math.max(surfaceWidth, doc.documentElement.scrollWidth, doc.body.scrollWidth, 680);
-    const contentHeight = isTemplatePreview
-      ? Math.max(surfaceHeight || doc.documentElement.scrollHeight || doc.body.scrollHeight, 520)
-      : Math.max(surfaceHeight, doc.documentElement.scrollHeight, doc.body.scrollHeight, 520);
+    const contentWidth = Math.max(
+      getPreviewSurfaceWidth(primarySurface),
+      doc.documentElement.scrollWidth,
+      doc.body.scrollWidth,
+      680
+    );
+    const contentHeight = Math.max(
+      getPreviewSurfaceHeight(primarySurface),
+      doc.documentElement.scrollHeight,
+      doc.body.scrollHeight,
+      520
+    );
 
-    const availableWidth = Math.max(120, frame.clientWidth - (isTemplatePreview ? 6 : 8));
-    const availableHeight = Math.max(78, frame.clientHeight - (isTemplatePreview ? 6 : 8));
-    const baseZoom = clamp(Math.min(availableWidth / contentWidth, availableHeight / contentHeight), 0.12, 1);
-    const scaledZoom = isTemplatePreview ? baseZoom * 1.06 : baseZoom;
-    const zoom = clamp(scaledZoom, 0.12, isTemplatePreview ? 1.08 : 1);
+    const availableWidth = Math.max(120, frame.clientWidth - 8);
+    const availableHeight = Math.max(78, frame.clientHeight - 8);
+    const zoom = clamp(Math.min(availableWidth / contentWidth, availableHeight / contentHeight), 0.12, 1);
 
     doc.body.style.zoom = String(zoom);
     doc.body.style.transformOrigin = "top center";
@@ -1131,31 +864,6 @@ function fitMarketPreviewFrame(frame) {
     }
   } catch {
     // Some browser+origin combinations can block iframe document access.
-  }
-}
-
-function canAccessPreviewFrameDocument(frame) {
-  if (!frame) {
-    return false;
-  }
-
-  if (frame.dataset.previewKind !== "src") {
-    return true;
-  }
-
-  const srcValue = frame.getAttribute("src") || frame.src || "";
-  if (!srcValue) {
-    return false;
-  }
-
-  try {
-    const srcUrl = new URL(srcValue, window.location.href);
-    if (srcUrl.protocol === "file:") {
-      return false;
-    }
-    return srcUrl.origin === window.location.origin;
-  } catch {
-    return false;
   }
 }
 
@@ -1205,8 +913,8 @@ function ensureMarketPreviewHostStyle(doc) {
   style.textContent = [
     "@media screen {",
     "  html, body { margin: 0 !important; padding: 0 !important; overflow: hidden !important; background: #eef3fb !important; }",
-    "  body { display: block !important; }",
-    "  main { margin: 0 auto !important; padding: 0 !important; gap: 0 !important; display: block !important; }",
+    "  body { display: flex !important; justify-content: center !important; align-items: flex-start !important; }",
+    "  main { margin: 0 auto !important; padding: 0 !important; gap: 0 !important; }",
     "  section.page, section.pdf-page, .pdf-page { margin: 0 auto !important; }",
     "}",
   ].join("\n");
@@ -1238,18 +946,18 @@ function getMarketPreviewSource(protocol) {
     };
   }
 
+  if (protocolCanLoad(protocol) && protocol.templateFile) {
+    return {
+      kind: "src",
+      value: getTemplatePreviewUrl(protocol),
+    };
+  }
+
   const inlineSource = getInlineTemplateSource(protocol);
   if (inlineSource) {
     return {
       kind: "srcdoc",
       value: inlineSource,
-    };
-  }
-
-  if (protocolCanLoad(protocol) && protocol.templateFile) {
-    return {
-      kind: "src",
-      value: getTemplatePreviewUrl(protocol),
     };
   }
 
@@ -1350,14 +1058,12 @@ function loadProtocol(protocolId) {
   state.selectedProtocolId = protocol.id;
   state.activeProtocolId = protocol.id;
   state.rawValues = createRawValuesFromDefaults(protocol);
-  state.previewZoom = null;
 
   renderProtocolControls(protocol, state.rawValues);
   syncProtocolUi();
   renderCatalog();
   renderEditorHeader();
   syncActionButtons();
-  syncPreviewControls();
   applyFromForm();
   setOverlayState("marketplace", false);
 }
@@ -1404,10 +1110,6 @@ function createField(parameter, initialValue) {
     wrapper.className = "check-row";
     wrapper.setAttribute("for", parameter.key);
 
-    const text = document.createElement("span");
-    text.className = "check-row-label";
-    text.textContent = parameter.label;
-
     const input = document.createElement("input");
     input.id = parameter.key;
     input.name = parameter.key;
@@ -1415,8 +1117,8 @@ function createField(parameter, initialValue) {
     input.checked = Boolean(initialValue);
     input.addEventListener("change", onEditorFieldChange);
 
-    wrapper.appendChild(text);
     wrapper.appendChild(input);
+    wrapper.appendChild(document.createTextNode(parameter.label));
 
     return { wrapper, input };
   }
@@ -1586,27 +1288,6 @@ function updateSummaryForProtocol(protocol, normalizedValues) {
 }
 
 function loadBaseProtocol(protocol) {
-  // Fast path: the iframe is already showing this template. Re-apply the
-  // rules on the live document instead of reloading the whole iframe. This
-  // keeps scroll position and avoids re-parsing the ~2 MB embedded SVG on
-  // every parameter change.
-  if (state.loadedProtocolId === protocol.id) {
-    const doc = refs.frame.contentDocument;
-    if (doc && doc.readyState !== "loading") {
-      applyRulesInPlace(protocol, doc);
-      return;
-    }
-  }
-
-  // Already fetching this same template? Let the in-flight load complete; the
-  // frame-loaded handler will pick up the latest pendingState values.
-  if (state.loadingProtocolId === protocol.id) {
-    return;
-  }
-
-  state.loadedProtocolId = "";
-  state.loadingProtocolId = protocol.id;
-
   const inlineSource = getInlineTemplateSource(protocol);
   if (inlineSource) {
     refs.frame.srcdoc = inlineSource;
@@ -1618,25 +1299,7 @@ function loadBaseProtocol(protocol) {
     return;
   }
 
-  state.loadingProtocolId = "";
   setStatus(`No template source found for ${protocol.label}.`, true);
-}
-
-function applyRulesInPlace(protocol, doc) {
-  const pending = state.pendingState;
-  state.pendingState = null;
-
-  try {
-    clearStudioOverlays(doc);
-    if (typeof protocol.applyRules === "function") {
-      protocol.applyRules(doc, pending ? pending.values : {});
-    }
-    setStatus(`Preview updated: ${protocol.label}.`);
-  } catch (error) {
-    setStatus(`Error applying template rules: ${error.message}`, true);
-  }
-
-  queuePreviewRefresh();
 }
 
 function getInlineTemplateSource(protocol) {
@@ -1669,8 +1332,6 @@ function getEmbeddedProtocolSource(protocolId) {
 }
 
 function handlePreviewFrameLoaded() {
-  state.loadingProtocolId = "";
-
   const doc = refs.frame.contentDocument;
   if (!doc) {
     return;
@@ -1690,15 +1351,12 @@ function handlePreviewFrameLoaded() {
       throw new Error("Template is no longer available.");
     }
 
-    clearStudioOverlays(doc);
     if (typeof protocol.applyRules === "function") {
       protocol.applyRules(doc, pending.values);
     }
 
-    state.loadedProtocolId = protocol.id;
     setStatus(`Preview ready: ${protocol.label}.`);
   } catch (error) {
-    state.loadedProtocolId = "";
     setStatus(`Error applying template rules: ${error.message}`, true);
   }
 
@@ -1718,14 +1376,12 @@ function refreshPreviewLayout() {
 
   ensurePreviewHostStyle(doc);
 
-  const zoom = Number.isFinite(state.previewZoom)
-    ? state.previewZoom
-    : computePreviewFitZoom(doc);
+  const zoom = state.previewMode === "fit" ? computePreviewFitZoom(doc) : 1;
   doc.body.style.zoom = String(zoom);
 
   const contentHeight = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
-  // Do not manipulate iframe height. Allow CSS flex context to constrain it
-  // and trigger native iframe scrollbars instead.
+  const targetHeight = Math.max(620, Math.ceil(contentHeight * zoom + 20));
+  refs.frame.style.height = `${targetHeight}px`;
 }
 
 function ensurePreviewHostStyle(doc) {
@@ -1747,14 +1403,6 @@ function ensurePreviewHostStyle(doc) {
   }
 }
 
-function getCurrentPreviewFitZoom() {
-  const doc = refs.frame?.contentDocument;
-  if (!doc || !doc.body) {
-    return 1;
-  }
-  return computePreviewFitZoom(doc);
-}
-
 function computePreviewFitZoom(doc) {
   const previousZoom = doc.body.style.zoom;
   doc.body.style.zoom = "1";
@@ -1767,10 +1415,13 @@ function computePreviewFitZoom(doc) {
   return clamp(availableWidth / contentWidth, 0.45, 1.35);
 }
 
-function syncPreviewControls() {
-  const autoFitActive = !Number.isFinite(state.previewZoom);
-  refs.previewAutoFitBtn.classList.toggle("btn-primary", autoFitActive);
-  refs.previewAutoFitBtn.classList.toggle("btn-soft", !autoFitActive);
+function syncPreviewButtons() {
+  const fitActive = state.previewMode === "fit";
+  refs.fitPreviewBtn.classList.toggle("btn-primary", fitActive);
+  refs.fitPreviewBtn.classList.toggle("btn-soft", !fitActive);
+
+  refs.actualPreviewBtn.classList.toggle("btn-primary", !fitActive);
+  refs.actualPreviewBtn.classList.toggle("btn-soft", fitActive);
 }
 
 function downloadCurrentHtml() {
@@ -1812,9 +1463,8 @@ function syncActionButtons() {
   refs.resetBtn.disabled = !hasActive;
   refs.downloadHtmlBtn.disabled = !hasActive;
   refs.printPdfBtn.disabled = !hasActive;
-  refs.previewZoomOutBtn.disabled = !hasActive;
-  refs.previewZoomInBtn.disabled = !hasActive;
-  refs.previewAutoFitBtn.disabled = !hasActive;
+  refs.fitPreviewBtn.disabled = !hasActive;
+  refs.actualPreviewBtn.disabled = !hasActive;
 
   const selected = getSelectedProtocol();
   refs.openMarketplaceFromPreviewBtn.disabled = !selected;
@@ -1914,13 +1564,6 @@ async function onPdfSelected(event) {
     await autoSuggestFieldsForCurrentPage(true);
     setPdfStatus("PDF ready. Draw regions or refine auto-suggested fields.");
   } catch (error) {
-    if (error && error.code === "PDFJS_UNAVAILABLE") {
-      setPdfStatus(
-        "Could not load pdf.js (required to parse PDFs). Check your internet connection or unblock cdnjs.cloudflare.com and try again.",
-        true,
-      );
-      return;
-    }
     setPdfStatus(`Could not load PDF: ${error.message}`, true);
   }
 }
@@ -1941,17 +1584,9 @@ async function ensurePdfJs() {
     script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
     script.async = true;
 
-    const fail = (message) => {
-      const err = new Error(message);
-      err.code = "PDFJS_UNAVAILABLE";
-      // Reset so a future attempt (e.g. after reconnecting) can retry.
-      pdfJsLoadingPromise = null;
-      reject(err);
-    };
-
     script.onload = () => {
       if (!window.pdfjsLib) {
-        fail("pdf.js loaded but did not initialize.");
+        reject(new Error("pdf.js did not initialize."));
         return;
       }
 
@@ -1961,7 +1596,7 @@ async function ensurePdfJs() {
     };
 
     script.onerror = () => {
-      fail("Unable to load pdf.js from CDN.");
+      reject(new Error("Unable to load pdf.js from CDN."));
     };
 
     document.head.appendChild(script);
@@ -2586,8 +2221,6 @@ async function publishPdfTemplateToMarketplace() {
 
     protocolCatalog.unshift(protocol);
     protocolById[protocol.id] = protocol;
-    rebuildProtocolCatalogOrder();
-    syncMarketplaceDensity();
 
     renderCatalog();
     selectProtocol(protocol.id);
@@ -2969,7 +2602,16 @@ function createProtocolCatalog() {
           min: 1,
           max: 40,
           step: 1,
-          hint: "Drives BD Stain Buffer math: 100-2N / 130-2.6N / 260-5.2N uL.",
+          hint: "Used for dynamic MasterMix calculations.",
+        },
+        {
+          key: "washCount",
+          label: "Post-labeling washes",
+          type: "select",
+          options: [
+            { value: "2", label: "2 washes" },
+            { value: "3", label: "3 washes (optional step 7)" },
+          ],
         },
         {
           key: "includeFcBlock",
@@ -2990,6 +2632,7 @@ function createProtocolCatalog() {
       defaults: {
         panelType: "20",
         antibodyCount: 20,
+        washCount: "2",
         includeFcBlock: true,
         lowAbundance: false,
         rbcContamination: false,
@@ -3021,6 +2664,7 @@ function createProtocolCatalog() {
         return {
           panelType,
           antibodyCount,
+          washCount: Number.parseInt(values.washCount, 10) === 3 ? 3 : 2,
           includeFcBlock: Boolean(values.includeFcBlock),
           lowAbundance: Boolean(values.lowAbundance),
           rbcContamination: Boolean(values.rbcContamination),
@@ -3051,7 +2695,9 @@ function createProtocolCatalog() {
         }
 
         applyMasterMixCalculations(page5, values.antibodyCount);
+        applyPlexFiltering(page5, values.panelType);
         applyFcBlockToggle(page6, values.includeFcBlock);
+        applyWashesToggle(page7, values.washCount);
         applyLowAbundanceToggle(page7, values.lowAbundance);
         applyRbcToggle(page4, values.rbcContamination);
       },
@@ -3336,96 +2982,96 @@ function setTextContent(doc, id, value) {
   node.textContent = value;
 }
 
-const STUDIO_OVERLAY_ATTR = "data-studio-overlay";
-
-// Centralized AbSeq SVG regions. Coordinates are in the embedded SVG's native
-// space and were measured directly against the vectorized PDF. When the base
-// template changes, adjust these values (ideally only here).
-const ABSEQ_COORDS = {
-  referenceNotice: {
-    page: 1,
-    cover: { x: 72, y: 694, width: 220, height: 31 },
-    text: { x: 76, y: 710, fontSize: 8, fontWeight: "500" },
-  },
-  masterMix: {
-    page: 5,
-    // addPdfText uses a matrix(.75 0 -0 .75 0 792) transform, so the tspan y
-    // is expressed as a negative number in that rotated/scaled space.
-    columnTransformY: -478.96,
-    columns: [
-      { cover: { x: 221, y: 423, width: 63, height: 13 }, textX: 291 },
-      { cover: { x: 293, y: 423, width: 66, height: 13 }, textX: 387 },
-      { cover: { x: 415, y: 423, width: 80, height: 13 }, textX: 555 },
-    ],
-  },
-  fcBlock: {
-    page: 6,
-    cover: { x: 72, y: 112, width: 468, height: 266 },
-  },
-  lowAbundance: {
-    page: 7,
-    cover: { x: 72, y: 337, width: 468, height: 42 },
-  },
-  rbcContamination: {
-    page: 4,
-    cover: { x: 72, y: 654, width: 468, height: 24 },
-  },
-};
-
-// Remove any overlay nodes previously injected by applyRules. Called before
-// re-applying rules so the same iframe can be reused across parameter changes.
-function clearStudioOverlays(doc) {
-  if (!doc) return;
-  doc.querySelectorAll(`[${STUDIO_OVERLAY_ATTR}]`).forEach((node) => node.remove());
-}
-
 function applyReferenceNotice(doc, referenceCode) {
-  const svg = getPageSvg(doc, ABSEQ_COORDS.referenceNotice.page);
-  if (!svg) return;
+  const pages = doc.querySelectorAll("section.page svg");
 
-  addCoverRect(svg, ABSEQ_COORDS.referenceNotice.cover);
-  addSvgText(svg, {
-    ...ABSEQ_COORDS.referenceNotice.text,
-    text: `Protocol generated using ${referenceCode} as reference.`,
-  });
-}
+  pages.forEach((svg) => {
+    addCoverRect(svg, {
+      x: 72,
+      y: 694,
+      width: 182,
+      height: 31,
+    });
 
-function applyMasterMixCalculations(page5Svg, n) {
-  const { columns, columnTransformY } = ABSEQ_COORDS.masterMix;
-  const values = [
-    Math.max(0, 100 - 2.0 * n),
-    Math.max(0, 130 - 2.6 * n),
-    Math.max(0, 260 - 5.2 * n),
-  ];
+    addSvgText(svg, {
+      x: 76,
+      y: 708,
+      text: "Protocol generated using",
+      fontSize: 8,
+      fontWeight: "500",
+    });
 
-  columns.forEach((col, idx) => {
-    addCoverRect(page5Svg, col.cover);
-    addPdfText(page5Svg, {
-      x: col.textX,
-      y: columnTransformY,
-      text: toFixed1(values[idx]),
+    addSvgText(svg, {
+      x: 76,
+      y: 719,
+      text: `${referenceCode} as reference.`,
+      fontSize: 8,
+      fontWeight: "500",
     });
   });
 }
 
+function applyMasterMixCalculations(page5Svg, n) {
+  addCoverRect(page5Svg, { x: 221, y: 423, width: 63, height: 13 });
+  addCoverRect(page5Svg, { x: 293, y: 423, width: 66, height: 13 });
+  addCoverRect(page5Svg, { x: 415, y: 423, width: 80, height: 13 });
+
+  const v1 = Math.max(0, 100 - 2.0 * n);
+  const v2 = Math.max(0, 130 - 2.6 * n);
+  const v3 = Math.max(0, 260 - 5.2 * n);
+
+  addPdfText(page5Svg, { x: 291, y: -478.96, text: toFixed1(v1) });
+  addPdfText(page5Svg, { x: 387, y: -478.96, text: toFixed1(v2) });
+  addPdfText(page5Svg, { x: 555, y: -478.96, text: toFixed1(v3) });
+}
+
+function applyPlexFiltering(page5Svg, panelType) {
+  void page5Svg;
+  void panelType;
+}
+
 function applyFcBlockToggle(page6Svg, includeFcBlock) {
-  if (includeFcBlock) return;
-  addCoverRect(page6Svg, ABSEQ_COORDS.fcBlock.cover);
+  if (includeFcBlock) {
+    return;
+  }
+
+  addCoverRect(page6Svg, {
+    x: 72,
+    y: 112,
+    width: 468,
+    height: 266,
+  });
+}
+
+function applyWashesToggle(page7Svg, washCount) {
+  void page7Svg;
+  void washCount;
 }
 
 function applyLowAbundanceToggle(page7Svg, lowAbundance) {
-  if (lowAbundance) return;
-  addCoverRect(page7Svg, ABSEQ_COORDS.lowAbundance.cover);
+  if (lowAbundance) {
+    return;
+  }
+
+  addCoverRect(page7Svg, {
+    x: 72,
+    y: 337,
+    width: 468,
+    height: 42,
+  });
 }
 
 function applyRbcToggle(page4Svg, rbcContamination) {
-  if (rbcContamination) return;
-  addCoverRect(page4Svg, ABSEQ_COORDS.rbcContamination.cover);
-}
+  if (rbcContamination) {
+    return;
+  }
 
-function markOverlay(node) {
-  node.setAttribute(STUDIO_OVERLAY_ATTR, "true");
-  return node;
+  addCoverRect(page4Svg, {
+    x: 72,
+    y: 654,
+    width: 468,
+    height: 24,
+  });
 }
 
 function addPdfText(svg, input) {
@@ -3443,20 +3089,17 @@ function addPdfText(svg, input) {
   tspan.textContent = input.text;
 
   textEl.appendChild(tspan);
-  svg.querySelector("g").appendChild(markOverlay(textEl));
+  svg.querySelector("g").appendChild(textEl);
 }
 
 function addCoverRect(svg, input) {
   const rect = document.createElementNS("http://www.w3.org/2000/svg", "rect");
-  // Apply a tiny bleed to avoid anti-aliasing seams around covered text.
-  const bleed = Number.isFinite(input.bleed) ? input.bleed : 1;
-  rect.setAttribute("x", String(input.x - bleed));
-  rect.setAttribute("y", String(input.y - bleed));
-  rect.setAttribute("width", String(input.width + bleed * 2));
-  rect.setAttribute("height", String(input.height + bleed * 2));
+  rect.setAttribute("x", String(input.x));
+  rect.setAttribute("y", String(input.y));
+  rect.setAttribute("width", String(input.width));
+  rect.setAttribute("height", String(input.height));
   rect.setAttribute("fill", "#ffffff");
-  rect.setAttribute("shape-rendering", "crispEdges");
-  svg.querySelector("g").appendChild(markOverlay(rect));
+  svg.querySelector("g").appendChild(rect);
 }
 
 function addSvgText(svg, input) {
@@ -3468,7 +3111,7 @@ function addSvgText(svg, input) {
   textEl.setAttribute("font-weight", input.fontWeight || "500");
   textEl.setAttribute("fill", "#111111");
   textEl.textContent = input.text;
-  svg.querySelector("g").appendChild(markOverlay(textEl));
+  svg.querySelector("g").appendChild(textEl);
 }
 
 function getPageSvg(doc, pageNumber) {
@@ -3485,4 +3128,3 @@ function clamp(value, min, max) {
   }
   return Math.min(max, Math.max(min, value));
 }
-

@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Scomix Template Workspace Pro</title>
+  <link rel="stylesheet" href="studio.css" />
+</head>
+<body>
+  <div class="app-backdrop" aria-hidden="true"></div>
+  <div class="app-grid-glow" aria-hidden="true"></div>
+
+  <div class="app-shell">
+    <header class="main-header panel">
+      <div class="brand-block">
+        <p class="eyebrow">Scomix Protocol Studio</p>
+        <h1>Template Workspace Pro</h1>
+        <p class="hero-copy">
+          Professional protocol design workspace with premium preview, marketplace exploration,
+          and visual PDF-to-template import.
+        </p>
+      </div>
+
+      <div class="header-actions">
+        <button id="exploreTemplatesBtn" type="button" class="btn btn-primary">Explore Templates</button>
+        <button id="openPdfLabBtn" type="button" class="btn btn-ghost">Import PDF</button>
+        <button id="downloadHtmlBtn" type="button" class="btn btn-soft">Download HTML</button>
+        <button id="printPdfBtn" type="button" class="btn btn-soft">Print / PDF</button>
+      </div>
+    </header>
+
+    <main id="workspace" class="workspace">
+      <aside class="editor-panel panel" aria-label="Template editor">
+        <div class="panel-header">
+          <div>
+            <h2 id="editorTitle">Select a template</h2>
+            <p id="editorSubtitle" class="panel-subtitle">Open Explore Templates to load a protocol.</p>
+          </div>
+          <button id="focusPreviewBtn" type="button" class="chip-action">Focus Preview</button>
+        </div>
+
+        <div id="activeProtocolMeta" class="meta-row" aria-live="polite"></div>
+
+        <div id="protocolControls" class="control-list"></div>
+
+        <div class="control-actions">
+          <button id="applyBtn" type="button" class="btn btn-primary">Apply</button>
+          <button id="resetBtn" type="button" class="btn btn-ghost">Reset</button>
+        </div>
+
+        <div class="summary-card" aria-live="polite">
+          <h3 id="summaryTitle">Calculated values</h3>
+          <p id="calcLine1"></p>
+          <p id="calcLine2"></p>
+          <p id="calcLine3"></p>
+        </div>
+      </aside>
+
+      <section class="preview-panel panel" aria-label="Protocol preview">
+        <div class="preview-toolbar">
+          <div>
+            <h2 id="previewProtocolName">Live Preview</h2>
+            <p id="status" class="status">Load a protocol to start.</p>
+          </div>
+
+          <div class="preview-toolbar-actions">
+            <button id="fitPreviewBtn" type="button" class="btn btn-soft">Fit width</button>
+            <button id="actualPreviewBtn" type="button" class="btn btn-soft">100%</button>
+            <button id="openMarketplaceFromPreviewBtn" type="button" class="btn btn-soft">Switch Template</button>
+          </div>
+        </div>
+
+        <div id="frameWrap" class="frame-wrap">
+          <iframe id="previewFrame" title="Protocol preview"></iframe>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <section
+    id="marketplacePanel"
+    class="overlay"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="marketplaceTitle"
+    aria-describedby="marketplaceDescription"
+    hidden
+    aria-label="Template marketplace"
+  >
+    <div class="overlay-scrim" data-close-overlay="marketplace"></div>
+    <div class="overlay-sheet">
+      <header class="overlay-header">
+        <div>
+          <p class="overlay-kicker">Marketplace</p>
+          <h2 id="marketplaceTitle">Explore Templates</h2>
+          <p id="marketplaceDescription" class="overlay-copy">
+            Browse official and internal protocol templates with live cards, visual previews, and one-click loading.
+          </p>
+        </div>
+        <button id="closeMarketplaceBtn" type="button" class="btn btn-soft">Close</button>
+      </header>
+
+      <div class="market-tools">
+        <div class="market-search-wrap">
+          <label for="catalogSearch">Search templates</label>
+          <input
+            id="catalogSearch"
+            name="catalogSearch"
+            type="search"
+            placeholder="Search by name, owner, tag or workflow..."
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="market-filters-row">
+          <div class="chip-row" role="tablist" aria-label="Filter templates by source">
+            <button type="button" class="chip is-active" data-source-filter="all">All</button>
+            <button type="button" class="chip" data-source-filter="official">Official / Scomix</button>
+            <button type="button" class="chip" data-source-filter="internal">Internal</button>
+          </div>
+
+          <div class="market-control-row">
+            <label class="market-inline-field" for="catalogSort">
+              <span>Sort</span>
+              <select id="catalogSort" name="catalogSort" class="market-select">
+                <option value="recommended">Recommended</option>
+                <option value="name-asc">Name (A-Z)</option>
+                <option value="name-desc">Name (Z-A)</option>
+              </select>
+            </label>
+
+            <label class="market-toggle" for="catalogReadyOnly">
+              <input id="catalogReadyOnly" name="catalogReadyOnly" type="checkbox" />
+              Show ready only
+            </label>
+
+            <button id="clearCatalogFiltersBtn" type="button" class="btn btn-soft market-clear-btn">
+              Clear filters
+            </button>
+          </div>
+        </div>
+
+        <div id="catalogStats" class="market-stats" aria-live="polite"></div>
+      </div>
+
+      <div class="market-headline">
+        <p id="catalogCount" aria-live="polite"></p>
+      </div>
+
+      <div id="catalogList" class="market-grid" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section id="pdfLabPanel" class="overlay" hidden aria-label="PDF template builder">
+    <div class="overlay-scrim" data-close-overlay="pdf-lab"></div>
+    <div class="overlay-sheet overlay-sheet-wide">
+      <header class="overlay-header">
+        <div>
+          <p class="overlay-kicker">Template Builder</p>
+          <h2>PDF Import Lab</h2>
+          <p class="overlay-copy">
+            Upload a PDF, auto-generate a template draft, and define editable regions visually.
+          </p>
+        </div>
+        <button id="closePdfLabBtn" type="button" class="btn btn-soft">Close</button>
+      </header>
+
+      <div class="pdf-lab-topbar">
+        <label class="upload-control" for="pdfUploadInput">
+          <span>Upload PDF</span>
+          <input id="pdfUploadInput" type="file" accept="application/pdf" />
+        </label>
+
+        <div class="pdf-page-controls">
+          <button id="pdfPrevPageBtn" type="button" class="btn btn-soft">Prev</button>
+          <p id="pdfPageIndicator">Page - / -</p>
+          <button id="pdfNextPageBtn" type="button" class="btn btn-soft">Next</button>
+          <button id="pdfZoomOutBtn" type="button" class="btn btn-soft">-</button>
+          <button id="pdfZoomInBtn" type="button" class="btn btn-soft">+</button>
+        </div>
+      </div>
+
+      <div class="pdf-lab-grid">
+        <section class="pdf-canvas-panel panel-subtle" aria-label="PDF page workspace">
+          <div class="pdf-canvas-toolbar">
+            <button id="autoSuggestFieldsBtn" type="button" class="btn btn-primary">Auto Suggest Fields</button>
+            <button id="clearPdfFieldsBtn" type="button" class="btn btn-soft">Clear Fields</button>
+          </div>
+
+          <div id="pdfCanvasWrap" class="pdf-canvas-wrap">
+            <canvas id="pdfCanvas"></canvas>
+            <div id="pdfOverlay" class="pdf-overlay" aria-label="Draw editable regions"></div>
+          </div>
+
+          <p class="pdf-help">
+            Draw by dragging over the page. Click any region to edit key, label, type, default value, and editable state.
+          </p>
+          <p id="pdfStatus" class="status">Upload a PDF to begin template generation.</p>
+        </section>
+
+        <aside class="pdf-config-panel panel-subtle" aria-label="Field configuration">
+          <h3>Template Fields</h3>
+          <div id="pdfFieldsList" class="pdf-field-list"></div>
+
+          <div id="pdfFieldEditor" class="pdf-field-editor" hidden>
+            <label for="fieldKeyInput">Field key</label>
+            <input id="fieldKeyInput" type="text" />
+
+            <label for="fieldLabelInput">Field label</label>
+            <input id="fieldLabelInput" type="text" />
+
+            <label for="fieldTypeSelect">Field type</label>
+            <select id="fieldTypeSelect">
+              <option value="text">Text</option>
+              <option value="number">Number</option>
+              <option value="checkbox">Checkbox</option>
+            </select>
+
+            <label for="fieldDefaultInput">Default value</label>
+            <input id="fieldDefaultInput" type="text" />
+
+            <label class="check-row" for="fieldEditableInput">
+              <input id="fieldEditableInput" type="checkbox" />
+              Editable in generated protocol
+            </label>
+
+            <div class="field-editor-actions">
+              <button id="saveFieldBtn" type="button" class="btn btn-primary">Save Field</button>
+              <button id="deleteFieldBtn" type="button" class="btn btn-soft">Delete</button>
+            </div>
+          </div>
+
+          <button id="publishPdfTemplateBtn" type="button" class="btn btn-primary full-width">
+            Publish Template To Marketplace
+          </button>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <script src="studio.js"></script>
+</body>
+</html>

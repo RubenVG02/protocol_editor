@@ -162,11 +162,20 @@
    ═══════════════════════════════════════════════════ */
 *, *::before, *::after { box-sizing: border-box; }
 
-html, body {
+html {
   margin: 0;
   height: 100%;
   min-height: 100dvh;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: hidden;
+}
+
+body {
+  margin: 0;
+  height: 100dvh;
+  min-height: 100dvh;
+  overflow-x: hidden;
+  overflow-y: hidden;
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: 15px;
@@ -208,9 +217,9 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; }
   flex-direction: column;
   gap: calc(var(--sp-6) + 2px);
   min-height: 100dvh;
-  height: auto;
+  height: 100dvh;
   box-sizing: border-box;
-  overflow: visible;
+  overflow: hidden;
 }
 
 /* ═══════════════════════════════════════════════════
@@ -290,7 +299,7 @@ h1 {
   gap: var(--sp-6);
   flex: 1;
   min-height: 0;
-  overflow: visible;
+  overflow: hidden;
   transition: grid-template-columns var(--duration-slow) var(--ease-out);
 }
 
@@ -1117,8 +1126,17 @@ input:disabled, select:disabled, button:disabled {
   opacity: 0.75;
 }
 
+.market-card.is-official::before {
+  background: linear-gradient(90deg, var(--primary-500), var(--primary-200));
+}
+
+.market-card.is-internal::before {
+  background: linear-gradient(90deg, var(--success-600), var(--success-100));
+}
+
 .market-card.is-planned::before {
   background: linear-gradient(90deg, var(--warning-500), var(--warning-300));
+  opacity: 0.9;
 }
 
 .market-card:hover {
@@ -1128,16 +1146,27 @@ input:disabled, select:disabled, button:disabled {
 }
 
 .market-card.is-selected {
-  border-color: var(--primary-400);
-  box-shadow: var(--shadow-md), 0 0 0 1px var(--primary-400);
+  box-shadow: var(--shadow-md), 0 0 0 2px rgba(53, 117, 226, 0.32);
 }
 
-.market-card.is-ready {
+.market-card.is-selected.is-internal {
+  box-shadow: var(--shadow-md), 0 0 0 2px rgba(26, 127, 84, 0.3);
+}
+
+.market-card.is-selected.is-planned {
+  box-shadow: var(--shadow-md), 0 0 0 2px rgba(180, 83, 9, 0.3);
+}
+
+.market-card.is-official {
+  border-left: 3px solid var(--primary-400);
+}
+
+.market-card.is-internal {
   border-left: 3px solid var(--success-400);
 }
 
 .market-card.is-planned {
-  border-left: 3px solid var(--warning-400);
+  border-left-style: solid;
 }
 
 .market-card-preview-shell {
@@ -1551,16 +1580,403 @@ input:disabled, select:disabled, button:disabled {
 .full-width { width: 100%; }
 
 /* ═══════════════════════════════════════════════════
+   MINIMAL WORKSPACE REFRESH (main screen)
+   ═══════════════════════════════════════════════════ */
+body {
+  background: linear-gradient(180deg, #f2f4f7, #eceff3);
+}
+
+body::before,
+body::after {
+  display: none;
+}
+
+.app-shell {
+  max-width: 1720px;
+  padding-top: 16px;
+  padding-bottom: 22px;
+}
+
+.app-shell .panel {
+  border-color: #d9e0ea;
+  box-shadow: 0 8px 24px rgba(20, 37, 63, 0.08);
+}
+
+.main-header {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid #dde4ee;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 14px rgba(27, 41, 66, 0.06);
+}
+
+.brand-block {
+  gap: 10px;
+}
+
+.brand-block::before {
+  content: "";
+  width: 16px;
+  height: 16px;
+  border-radius: 5px;
+  background: conic-gradient(from 210deg, #3ea9ff, #3067d9, #78c4ff, #3ea9ff);
+}
+
+.eyebrow {
+  display: none;
+}
+
+h1 {
+  color: #1d293f;
+  background: none;
+  -webkit-text-fill-color: currentColor;
+  font-size: 1.02rem;
+  font-weight: 600;
+}
+
+.header-center-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  justify-self: center;
+  min-width: 0;
+}
+
+.nav-chip {
+  border: 1px solid #d6dde7;
+  background: #f9fbfd;
+  color: #536685;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 9px 14px;
+  cursor: pointer;
+}
+
+.nav-chip.is-active {
+  border-color: #bfd2ec;
+  background: #edf4ff;
+  color: #295483;
+}
+
+.nav-chip.is-marketplace {
+  border-color: #6d9fe0;
+  background: linear-gradient(135deg, #d4e7ff, #bedcff);
+  color: #16457c;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.86), 0 4px 12px rgba(49, 99, 171, 0.18);
+}
+
+.nav-chip.is-muted {
+  color: #6f809a;
+  cursor: default;
+}
+
+.header-actions .btn {
+  min-height: 34px;
+  border-radius: 9px;
+  font-size: 12px;
+  padding: 7px 12px;
+  color: #263854;
+  background: #ffffff;
+  border-color: #d6dee9;
+}
+
+.header-actions .btn-primary {
+  background: #2f6edc;
+  border-color: #2f6edc;
+  color: #ffffff;
+}
+
+.preview-toolbar-actions {
+  align-items: center;
+}
+
+#previewZoomOutBtn,
+#previewZoomInBtn {
+  min-width: 34px;
+  padding-inline: 0;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.workspace {
+  grid-template-columns: minmax(290px, 340px) minmax(0, 1fr);
+  gap: 12px;
+}
+
+.editor-panel,
+.preview-panel {
+  background: #ffffff;
+}
+
+.editor-panel {
+  border-right: 1px solid #ebeff5;
+}
+
+.panel-header h2,
+.preview-toolbar h2,
+#summaryTitle {
+  color: #121f33;
+}
+
+.panel-subtitle,
+.status,
+.hint,
+.meta-pill,
+.summary-card p,
+label {
+  color: #5a6c86;
+}
+
+.meta-pill {
+  border-color: #d9e2ee;
+  background: #f7f9fc;
+}
+
+.editor-panel input[type="text"],
+.editor-panel input[type="number"],
+.editor-panel select {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid #cfd8e5;
+  border-radius: 0;
+  padding: 7px 2px;
+  color: #1f314f;
+}
+
+.editor-panel input[type="text"]:focus,
+.editor-panel input[type="number"]:focus,
+.editor-panel select:focus {
+  border-color: #7fa5d8;
+  box-shadow: none;
+}
+
+.check-row {
+  justify-content: space-between;
+  gap: var(--sp-4);
+  color: #1d2d46;
+  font-size: var(--text-sm);
+}
+
+.check-row-label {
+  line-height: 1.35;
+  font-weight: 500;
+}
+
+.check-row input[type="checkbox"] {
+  width: 38px;
+  height: 22px;
+  border-radius: var(--radius-pill);
+  border: 1px solid #b7c4d6;
+  background: #e9edf3;
+}
+
+.check-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  border-radius: 50%;
+  background: #ffffff;
+  transform: translateX(0);
+  transition: transform var(--duration-fast) ease;
+  box-shadow: 0 1px 2px rgba(27, 38, 56, 0.24);
+}
+
+.check-row input[type="checkbox"]:checked {
+  background: linear-gradient(135deg, #4d96ff, #2e6ed8);
+  border-color: #4f8fdf;
+}
+
+.check-row input[type="checkbox"]:checked::after {
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border: 0;
+  transform: translateX(16px);
+}
+
+.summary-card {
+  border-color: #dce5f0;
+  background: #fbfcfe;
+}
+
+.summary-card h3 {
+  color: #516a8f;
+}
+
+.control-actions {
+  background: linear-gradient(to top, rgba(255, 255, 255, 0.96) 72%, transparent);
+}
+
+.frame-wrap {
+  background: #f4f5f8;
+  border-color: #d8dfe9;
+}
+
+#previewFrame {
+  background: #ffffff;
+  border-radius: 12px;
+}
+
+/* Marketplace card thumbnail primitives */
+.market-card-preview-shell {
+  height: 136px;
+  padding: 0;
+  border: 1px solid #d6e1ef;
+  background: linear-gradient(145deg, #edf3fa, #dce7f5);
+}
+
+.market-thumb-glow {
+  position: absolute;
+  inset: 0;
+}
+
+.market-thumb-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(8px);
+  opacity: 0.7;
+}
+
+.market-thumb-blob.blob-1 { width: 118px; height: 118px; left: 14px; top: 8px; }
+.market-thumb-blob.blob-2 { width: 140px; height: 140px; right: 16px; top: 20px; }
+.market-thumb-blob.blob-3 { width: 98px; height: 98px; left: 42%; bottom: -22px; }
+
+.market-card-preview-shell.is-official .market-thumb-blob { background: radial-gradient(circle, rgba(61, 140, 234, 0.74), rgba(61, 140, 234, 0.24)); }
+.market-card-preview-shell.is-internal .market-thumb-blob { background: radial-gradient(circle, rgba(62, 168, 128, 0.72), rgba(62, 168, 128, 0.24)); }
+.market-card-preview-shell.is-planned .market-thumb-blob { background: radial-gradient(circle, rgba(146, 105, 205, 0.68), rgba(146, 105, 205, 0.24)); }
+
+.market-thumb-page {
+  position: relative;
+  margin: 14px auto 0;
+  width: min(210px, 64%);
+  height: 108px;
+  border-radius: 9px;
+  border: 1px solid #cad8eb;
+  background: linear-gradient(180deg, #ffffff, #f9fbff);
+  box-shadow: 0 8px 16px rgba(19, 35, 58, 0.2);
+  padding: 9px 10px;
+  display: grid;
+  grid-template-rows: auto auto 1fr;
+  gap: 7px;
+}
+
+.market-thumb-page-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 9px;
+  color: #6a7f9f;
+}
+
+.market-thumb-page-brand {
+  font-weight: 700;
+  color: #1a365d;
+}
+
+.market-thumb-page-title {
+  margin: 0;
+  font-size: 10px;
+  line-height: 1.25;
+  color: #1c2f4e;
+  font-weight: 600;
+}
+
+.market-thumb-page-body {
+  display: grid;
+  gap: 4px;
+}
+
+.market-thumb-page-line {
+  height: 4px;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, #d4deec, #edf3fb);
+}
+
+.market-thumb-page-line.short { width: 58%; }
+
+@media (max-width: 1440px) {
+  .app-shell {
+    padding-top: 12px;
+    padding-bottom: 14px;
+    padding-left: 14px;
+    padding-right: 14px;
+    gap: 12px;
+  }
+
+  .main-header {
+    grid-template-columns: auto auto 1fr;
+    padding: 10px 14px;
+    gap: 12px;
+  }
+
+  .header-center-cta {
+    justify-self: start;
+  }
+
+  .workspace {
+    grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+    gap: 10px;
+  }
+
+  .editor-panel,
+  .preview-panel {
+    padding: 16px;
+  }
+
+  .preview-toolbar {
+    align-items: flex-start;
+    gap: 10px;
+    padding-bottom: 10px;
+  }
+
+  .preview-toolbar > div:first-child {
+    min-width: 0;
+  }
+
+  .preview-toolbar h2 {
+    font-size: 0.95rem;
+    line-height: 1.25;
+    white-space: normal;
+  }
+
+  .header-actions {
+    gap: 6px;
+  }
+
+  .header-actions .btn {
+    padding: 6px 10px;
+    font-size: 11px;
+    min-height: 32px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
    RESPONSIVE
    ═══════════════════════════════════════════════════ */
 @media (max-width: 1160px) {
   .main-header {
+    display: flex;
     flex-wrap: wrap;
+  }
+
+  .header-center-cta {
+    width: 100%;
+    justify-content: flex-start;
+    order: 2;
   }
 
   .header-actions {
     width: 100%;
     justify-content: flex-end;
+    order: 3;
   }
 
   .workspace {
@@ -1757,8 +2173,11 @@ input:disabled, select:disabled, button:disabled {
         <h1>Protocol Studio</h1>
       </div>
 
+      <div class="header-center-cta" aria-label="Main action">
+        <button id="exploreTemplatesBtn" type="button" class="nav-chip is-active is-marketplace" title="Shortcut: T">Templates Marketplace</button>
+      </div>
+
       <div class="header-actions">
-        <button id="exploreTemplatesBtn" type="button" class="btn btn-primary" title="Shortcut: T">Explore Templates</button>
         <button id="openPdfLabBtn" type="button" class="btn btn-ghost" title="Shortcut: I">Import PDF</button>
         <button id="downloadHtmlBtn" type="button" class="btn btn-soft">Export HTML</button>
         <button id="printPdfBtn" type="button" class="btn btn-soft">Print / PDF</button>
@@ -1772,7 +2191,6 @@ input:disabled, select:disabled, button:disabled {
             <h2 id="editorTitle">Select a template</h2>
             <p id="editorSubtitle" class="panel-subtitle">Open Explore Templates to load a protocol.</p>
           </div>
-          <button id="focusPreviewBtn" type="button" class="chip-action" title="Shortcut: E">Focus Preview</button>
         </div>
 
         <div id="activeProtocolMeta" class="meta-row" aria-live="polite"></div>
@@ -1800,9 +2218,10 @@ input:disabled, select:disabled, button:disabled {
           </div>
 
           <div class="preview-toolbar-actions">
-            <button id="fitPreviewBtn" type="button" class="btn btn-soft">Fit width</button>
-            <button id="actualPreviewBtn" type="button" class="btn btn-soft">100%</button>
-            <button id="openMarketplaceFromPreviewBtn" type="button" class="btn btn-soft">Switch Template</button>
+            <button id="previewZoomOutBtn" type="button" class="btn btn-soft" aria-label="Zoom out preview">−</button>
+            <button id="previewZoomInBtn" type="button" class="btn btn-soft" aria-label="Zoom in preview">+</button>
+            <button id="previewAutoFitBtn" type="button" class="btn btn-soft">Auto Fit</button>
+            <button id="openMarketplaceFromPreviewBtn" type="button" class="btn btn-primary">Switch Template</button>
           </div>
         </div>
 
@@ -1827,10 +2246,10 @@ input:disabled, select:disabled, button:disabled {
     <div class="overlay-sheet">
       <header class="overlay-header">
         <div>
-          <p class="overlay-kicker">Marketplace</p>
-          <h2 id="marketplaceTitle">Explore Templates</h2>
+          <p class="overlay-kicker">Scomix Protocol Studio</p>
+          <h2 id="marketplaceTitle">Premium Protocol Marketplace</h2>
           <p id="marketplaceDescription" class="overlay-copy">
-            Browse official and internal protocol templates with live cards, visual previews, and one-click loading.
+            Browse official and internal templates with rich visual previews and one-click loading.
           </p>
         </div>
         <button id="closeMarketplaceBtn" type="button" class="btn btn-soft">Close</button>
@@ -12040,7 +12459,7 @@ const state = {
   pendingState: null,
   fieldRefs: {},
   rawValues: {},
-  previewMode: "fit",
+  previewZoom: null,
   previewRefreshTimer: 0,
   pdfLab: {
     pdfDoc: null,
@@ -12073,7 +12492,6 @@ const refs = {
   workspace: document.getElementById("workspace"),
   exploreTemplatesBtn: document.getElementById("exploreTemplatesBtn"),
   openPdfLabBtn: document.getElementById("openPdfLabBtn"),
-  focusPreviewBtn: document.getElementById("focusPreviewBtn"),
 
   marketplacePanel: document.getElementById("marketplacePanel"),
   closeMarketplaceBtn: document.getElementById("closeMarketplaceBtn"),
@@ -12131,8 +12549,9 @@ const refs = {
 
   downloadHtmlBtn: document.getElementById("downloadHtmlBtn"),
   printPdfBtn: document.getElementById("printPdfBtn"),
-  fitPreviewBtn: document.getElementById("fitPreviewBtn"),
-  actualPreviewBtn: document.getElementById("actualPreviewBtn"),
+  previewZoomOutBtn: document.getElementById("previewZoomOutBtn"),
+  previewZoomInBtn: document.getElementById("previewZoomInBtn"),
+  previewAutoFitBtn: document.getElementById("previewAutoFitBtn"),
   openMarketplaceFromPreviewBtn: document.getElementById("openMarketplaceFromPreviewBtn"),
 
   summaryTitle: document.getElementById("summaryTitle"),
@@ -12163,7 +12582,7 @@ function init() {
   renderSourceFilterChips();
   renderCatalog();
   setSummary("Calculated values", ["", "", ""]);
-  syncPreviewButtons();
+  syncPreviewControls();
 
   if (protocolCatalog.length === 0) {
     setStatus("No templates registered.", true);
@@ -12267,17 +12686,27 @@ function bindEvents() {
   safeOn(refs.catalogList, "keydown", onCatalogListKeydown);
   safeOn(refs.templatePreviewUseBtn, "click", useTemplateFromPreview);
 
-  safeOn(refs.focusPreviewBtn, "click", focusPreview);
-
-  safeOn(refs.fitPreviewBtn, "click", () => {
-    state.previewMode = "fit";
-    syncPreviewButtons();
+  safeOn(refs.previewZoomOutBtn, "click", () => {
+    const currentZoom = Number.isFinite(state.previewZoom)
+      ? state.previewZoom
+      : getCurrentPreviewFitZoom();
+    state.previewZoom = clamp(currentZoom * 0.9, 0.45, 1.6);
+    syncPreviewControls();
     queuePreviewRefresh();
   });
 
-  safeOn(refs.actualPreviewBtn, "click", () => {
-    state.previewMode = "actual";
-    syncPreviewButtons();
+  safeOn(refs.previewZoomInBtn, "click", () => {
+    const currentZoom = Number.isFinite(state.previewZoom)
+      ? state.previewZoom
+      : getCurrentPreviewFitZoom();
+    state.previewZoom = clamp(currentZoom * 1.1, 0.45, 1.6);
+    syncPreviewControls();
+    queuePreviewRefresh();
+  });
+
+  safeOn(refs.previewAutoFitBtn, "click", () => {
+    state.previewZoom = null;
+    syncPreviewControls();
     queuePreviewRefresh();
   });
 
@@ -12306,15 +12735,6 @@ function bindEvents() {
   document.addEventListener("keydown", onGlobalKeydown);
 
   bindPdfLabEvents();
-}
-
-function focusPreview() {
-  if (!refs.workspace || !refs.focusPreviewBtn) return;
-  refs.workspace.classList.toggle("is-preview-focus");
-  refs.focusPreviewBtn.textContent = refs.workspace.classList.contains("is-preview-focus")
-    ? "Show Editor"
-    : "Focus Preview";
-  queuePreviewRefresh();
 }
 
 function getTopVisibleOverlay() {
@@ -12369,10 +12789,6 @@ function onGlobalKeydown(event) {
     case "i":
       event.preventDefault();
       setOverlayState("pdf-lab", true);
-      break;
-    case "e":
-      event.preventDefault();
-      focusPreview();
       break;
     case "a":
       event.preventDefault();
@@ -12894,6 +13310,7 @@ function sortCatalog(protocols) {
 function createMarketCard(protocol) {
   const card = document.createElement("article");
   card.className = "market-card";
+  card.classList.add(`is-${protocol.source}`);
   card.classList.add(protocol.availability === "ready" ? "is-ready" : "is-planned");
   if (state.selectedProtocolId === protocol.id) {
     card.classList.add("is-selected");
@@ -12910,51 +13327,53 @@ function createMarketCard(protocol) {
 
   const previewShell = document.createElement("div");
   previewShell.className = "market-card-preview-shell";
+  previewShell.classList.add(`is-${protocol.source}`);
+  if (protocol.availability === "planned") {
+    previewShell.classList.add("is-planned");
+  }
 
-  const miniPreview = document.createElement("div");
-  miniPreview.className = "market-mini-preview";
-
-  const miniHead = document.createElement("div");
-  miniHead.className = "market-mini-preview-head";
-
-  const miniTitle = document.createElement("p");
-  miniTitle.className = "market-mini-preview-title";
-  miniTitle.textContent =
-    protocol.label.length > 42 ? `${protocol.label.slice(0, 39)}...` : protocol.label;
-
-  const miniVersion = document.createElement("p");
-  miniVersion.className = "market-mini-preview-version";
-  miniVersion.textContent = protocol.version;
-  miniHead.appendChild(miniTitle);
-  miniHead.appendChild(miniVersion);
-
-  const miniLines = document.createElement("div");
-  miniLines.className = "market-mini-preview-lines";
-  ["wide", "mid", "wide", "short"].forEach((sizeClass) => {
-    const line = document.createElement("span");
-    line.className = `market-mini-preview-line ${sizeClass}`;
-    miniLines.appendChild(line);
+  const thumbGlow = document.createElement("div");
+  thumbGlow.className = "market-thumb-glow";
+  ["blob-1", "blob-2", "blob-3"].forEach((blobClass) => {
+    const blob = document.createElement("span");
+    blob.className = `market-thumb-blob ${blobClass}`;
+    thumbGlow.appendChild(blob);
   });
 
-  const miniFooter = document.createElement("div");
-  miniFooter.className = "market-mini-preview-footer";
-  const miniSource = document.createElement("span");
-  miniSource.className = "market-mini-chip";
-  miniSource.textContent = protocol.source === "official" ? "Official" : "Internal";
-  const miniState = document.createElement("span");
-  miniState.className = "market-mini-chip";
-  miniState.textContent = protocol.availability === "ready" ? "Ready" : "Planned";
-  miniFooter.appendChild(miniSource);
-  miniFooter.appendChild(miniState);
+  const thumbPage = document.createElement("div");
+  thumbPage.className = "market-thumb-page";
+  const thumbPageHead = document.createElement("div");
+  thumbPageHead.className = "market-thumb-page-head";
+  const thumbBrand = document.createElement("span");
+  thumbBrand.className = "market-thumb-page-brand";
+  thumbBrand.textContent = protocol.source === "official" ? "BD" : "INT";
+  const thumbKicker = document.createElement("span");
+  thumbKicker.textContent = protocol.tags[0] || "Template";
+  thumbPageHead.appendChild(thumbBrand);
+  thumbPageHead.appendChild(thumbKicker);
+
+  const thumbTitle = document.createElement("p");
+  thumbTitle.className = "market-thumb-page-title";
+  thumbTitle.textContent =
+    protocol.label.length > 32 ? `${protocol.label.slice(0, 29)}...` : protocol.label;
+
+  const thumbBody = document.createElement("div");
+  thumbBody.className = "market-thumb-page-body";
+  [false, false, true].forEach((isShortLine) => {
+    const line = document.createElement("span");
+    line.className = isShortLine ? "market-thumb-page-line short" : "market-thumb-page-line";
+    thumbBody.appendChild(line);
+  });
 
   const previewOverlay = document.createElement("div");
   previewOverlay.className = "market-card-preview-overlay";
-  previewOverlay.textContent = "Quick preview";
+  previewOverlay.textContent = "Quick Preview";
 
-  miniPreview.appendChild(miniHead);
-  miniPreview.appendChild(miniLines);
-  miniPreview.appendChild(miniFooter);
-  previewShell.appendChild(miniPreview);
+  thumbPage.appendChild(thumbPageHead);
+  thumbPage.appendChild(thumbTitle);
+  thumbPage.appendChild(thumbBody);
+  previewShell.appendChild(thumbGlow);
+  previewShell.appendChild(thumbPage);
   previewShell.appendChild(previewOverlay);
 
   const head = document.createElement("div");
@@ -13025,11 +13444,11 @@ function createMarketCard(protocol) {
   if (protocolCanLoad(protocol)) {
     if (state.activeProtocolId === protocol.id) {
       loadBtn.className = "btn btn-soft";
-      loadBtn.textContent = "Active";
+      loadBtn.textContent = "Using";
       loadBtn.disabled = true;
     } else {
       loadBtn.className = "btn btn-primary";
-      loadBtn.textContent = "Load";
+      loadBtn.textContent = "Use Template";
     }
   } else {
     loadBtn.className = "btn btn-soft";
@@ -13371,12 +13790,14 @@ function loadProtocol(protocolId) {
   state.selectedProtocolId = protocol.id;
   state.activeProtocolId = protocol.id;
   state.rawValues = createRawValuesFromDefaults(protocol);
+  state.previewZoom = null;
 
   renderProtocolControls(protocol, state.rawValues);
   syncProtocolUi();
   renderCatalog();
   renderEditorHeader();
   syncActionButtons();
+  syncPreviewControls();
   applyFromForm();
   setOverlayState("marketplace", false);
 }
@@ -13423,6 +13844,10 @@ function createField(parameter, initialValue) {
     wrapper.className = "check-row";
     wrapper.setAttribute("for", parameter.key);
 
+    const text = document.createElement("span");
+    text.className = "check-row-label";
+    text.textContent = parameter.label;
+
     const input = document.createElement("input");
     input.id = parameter.key;
     input.name = parameter.key;
@@ -13430,8 +13855,8 @@ function createField(parameter, initialValue) {
     input.checked = Boolean(initialValue);
     input.addEventListener("change", onEditorFieldChange);
 
+    wrapper.appendChild(text);
     wrapper.appendChild(input);
-    wrapper.appendChild(document.createTextNode(parameter.label));
 
     return { wrapper, input };
   }
@@ -13733,7 +14158,9 @@ function refreshPreviewLayout() {
 
   ensurePreviewHostStyle(doc);
 
-  const zoom = state.previewMode === "fit" ? computePreviewFitZoom(doc) : 1;
+  const zoom = Number.isFinite(state.previewZoom)
+    ? state.previewZoom
+    : computePreviewFitZoom(doc);
   doc.body.style.zoom = String(zoom);
 
   const contentHeight = Math.max(doc.documentElement.scrollHeight, doc.body.scrollHeight);
@@ -13760,6 +14187,14 @@ function ensurePreviewHostStyle(doc) {
   }
 }
 
+function getCurrentPreviewFitZoom() {
+  const doc = refs.frame?.contentDocument;
+  if (!doc || !doc.body) {
+    return 1;
+  }
+  return computePreviewFitZoom(doc);
+}
+
 function computePreviewFitZoom(doc) {
   const previousZoom = doc.body.style.zoom;
   doc.body.style.zoom = "1";
@@ -13772,13 +14207,10 @@ function computePreviewFitZoom(doc) {
   return clamp(availableWidth / contentWidth, 0.45, 1.35);
 }
 
-function syncPreviewButtons() {
-  const fitActive = state.previewMode === "fit";
-  refs.fitPreviewBtn.classList.toggle("btn-primary", fitActive);
-  refs.fitPreviewBtn.classList.toggle("btn-soft", !fitActive);
-
-  refs.actualPreviewBtn.classList.toggle("btn-primary", !fitActive);
-  refs.actualPreviewBtn.classList.toggle("btn-soft", fitActive);
+function syncPreviewControls() {
+  const autoFitActive = !Number.isFinite(state.previewZoom);
+  refs.previewAutoFitBtn.classList.toggle("btn-primary", autoFitActive);
+  refs.previewAutoFitBtn.classList.toggle("btn-soft", !autoFitActive);
 }
 
 function downloadCurrentHtml() {
@@ -13820,8 +14252,9 @@ function syncActionButtons() {
   refs.resetBtn.disabled = !hasActive;
   refs.downloadHtmlBtn.disabled = !hasActive;
   refs.printPdfBtn.disabled = !hasActive;
-  refs.fitPreviewBtn.disabled = !hasActive;
-  refs.actualPreviewBtn.disabled = !hasActive;
+  refs.previewZoomOutBtn.disabled = !hasActive;
+  refs.previewZoomInBtn.disabled = !hasActive;
+  refs.previewAutoFitBtn.disabled = !hasActive;
 
   const selected = getSelectedProtocol();
   refs.openMarketplaceFromPreviewBtn.disabled = !selected;
