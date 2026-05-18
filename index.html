@@ -3,10 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Scomix Protocol Studio</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <title>Protocol Studio</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%2314212f'/%3E%3Cpath d='M18 18h28v8H26v20h-8V18Z' fill='%2389b7ff'/%3E%3Cpath d='M30 30h16v16H30V30Z' fill='%232f6edc'/%3E%3C/svg%3E">
   <style>
 /* ═══════════════════════════════════════════════════
    DESIGN TOKENS
@@ -54,7 +52,9 @@
   /* — Warning (amber) — */
   --warning-50: #fffbeb;
   --warning-100: #fef3c7;
+  --warning-300: #f7c76f;
   --warning-400: #f59e0b;
+  --warning-500: #d98806;
   --warning-600: #b45309;
   --warning-700: #92400e;
 
@@ -108,8 +108,8 @@
   --shadow-focus-danger: 0 0 0 3px rgba(220, 38, 38, 0.16);
 
   /* — Typography — */
-  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  --font-mono: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+  --font-sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, 'Aptos', 'Segoe UI Variable', 'Segoe UI', sans-serif;
+  --font-mono: 'SF Mono', 'Cascadia Mono', 'Menlo', 'Consolas', monospace;
   --text-xs: 0.6875rem;
   --text-sm: 0.8125rem;
   --text-base: 0.875rem;
@@ -1825,6 +1825,98 @@ label {
   border-radius: 12px;
 }
 
+.btn-icon {
+  width: 15px;
+  height: 15px;
+  flex: 0 0 auto;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.icon-btn {
+  width: 36px;
+  min-width: 36px;
+  padding-inline: 0;
+}
+
+.nav-chip,
+.btn {
+  isolation: isolate;
+}
+
+.nav-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: transform 180ms var(--ease-out), box-shadow 180ms var(--ease-out), border-color 180ms var(--ease-out), background 180ms var(--ease-out), color 180ms var(--ease-out);
+}
+
+.nav-chip:hover:enabled {
+  transform: translateY(-1px);
+}
+
+.nav-chip:active:enabled {
+  transform: scale(0.98);
+}
+
+.nav-chip:focus-visible {
+  box-shadow: var(--shadow-focus);
+  outline: none;
+}
+
+.btn {
+  transition-duration: 180ms;
+  transition-timing-function: var(--ease-out);
+}
+
+.btn:focus-visible,
+.nav-chip:focus-visible,
+.chip:focus-visible,
+input:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+.workspace.is-preview-focus {
+  gap: 0;
+}
+
+.workspace.is-preview-focus .preview-panel {
+  border-radius: 18px;
+}
+
+#focusPreviewBtn.is-active {
+  background: #14212f;
+  border-color: #14212f;
+  color: #ffffff;
+  box-shadow: 0 6px 16px rgba(20, 33, 47, 0.16);
+}
+
+.summary-card {
+  border-color: #d7e3f2;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.9), rgba(247,250,254,0.98)),
+    radial-gradient(circle at 18% 0%, rgba(58, 124, 220, 0.12), transparent 42%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.summary-card h3 {
+  color: #2b527e;
+}
+
+.frame-wrap {
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+}
+
+.preview-panel {
+  box-shadow: 0 14px 36px rgba(20, 37, 63, 0.09);
+}
+
 /* Marketplace card thumbnail primitives */
 .market-card-preview-shell {
   height: 136px;
@@ -2056,6 +2148,10 @@ label {
     grid-template-columns: 1fr 1fr;
   }
 
+  .preview-toolbar-actions .icon-btn {
+    width: 100%;
+  }
+
   .market-grid {
     grid-template-columns: 1fr;
   }
@@ -2174,13 +2270,25 @@ label {
       </div>
 
       <div class="header-center-cta" aria-label="Main action">
-        <button id="exploreTemplatesBtn" type="button" class="nav-chip is-active is-marketplace" title="Shortcut: T">Templates Marketplace</button>
+        <button id="exploreTemplatesBtn" type="button" class="nav-chip is-active is-marketplace" title="Shortcut: T">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 6.5h15M4.5 12h15M4.5 17.5h15M8 4.25v15.5M16 4.25v15.5"/></svg>
+          Templates Marketplace
+        </button>
       </div>
 
       <div class="header-actions">
-        <button id="openPdfLabBtn" type="button" class="btn btn-ghost" title="Shortcut: I">Import PDF</button>
-        <button id="downloadHtmlBtn" type="button" class="btn btn-soft">Export HTML</button>
-        <button id="printPdfBtn" type="button" class="btn btn-soft">Print / PDF</button>
+        <button id="openPdfLabBtn" type="button" class="btn btn-ghost" title="Shortcut: I">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M6.5 20.5h11a2 2 0 0 0 2-2v-9l-5-6h-8a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2Z"/><path d="M14.5 3.5v6h5M8 14.5h8M8 17h5"/></svg>
+          Import PDF
+        </button>
+        <button id="downloadHtmlBtn" type="button" class="btn btn-soft">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14"/></svg>
+          Export HTML
+        </button>
+        <button id="printPdfBtn" type="button" class="btn btn-soft">
+          <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 8V4h10v4M7 17.5H5.5a2 2 0 0 1-2-2V11a2 2 0 0 1 2-2h13a2 2 0 0 1 2 2v4.5a2 2 0 0 1-2 2H17"/><path d="M7 14h10v6H7z"/></svg>
+          Print / PDF
+        </button>
       </div>
     </header>
 
@@ -2218,10 +2326,24 @@ label {
           </div>
 
           <div class="preview-toolbar-actions">
-            <button id="previewZoomOutBtn" type="button" class="btn btn-soft" aria-label="Zoom out preview">−</button>
-            <button id="previewZoomInBtn" type="button" class="btn btn-soft" aria-label="Zoom in preview">+</button>
-            <button id="previewAutoFitBtn" type="button" class="btn btn-soft">Auto Fit</button>
-            <button id="openMarketplaceFromPreviewBtn" type="button" class="btn btn-primary">Switch Template</button>
+            <button id="focusPreviewBtn" type="button" class="btn btn-soft" aria-pressed="false" title="Shortcut: E">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4H4v4M16 4h4v4M8 20H4v-4M20 16v4h-4"/></svg>
+              <span data-focus-label>Focus</span>
+            </button>
+            <button id="previewZoomOutBtn" type="button" class="btn btn-soft icon-btn" aria-label="Zoom out preview">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14"/></svg>
+            </button>
+            <button id="previewZoomInBtn" type="button" class="btn btn-soft icon-btn" aria-label="Zoom in preview">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+            </button>
+            <button id="previewAutoFitBtn" type="button" class="btn btn-soft">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8V5h3M16 5h3v3M8 19H5v-3M19 16v3h-3M8 12h8"/></svg>
+              Auto Fit
+            </button>
+            <button id="openMarketplaceFromPreviewBtn" type="button" class="btn btn-primary">
+              <svg class="btn-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 7h10M7 12h10M7 17h6"/><path d="m16 15 2 2 3-4"/></svg>
+              Switch Template
+            </button>
           </div>
         </div>
 
@@ -12552,6 +12674,7 @@ const refs = {
   previewZoomOutBtn: document.getElementById("previewZoomOutBtn"),
   previewZoomInBtn: document.getElementById("previewZoomInBtn"),
   previewAutoFitBtn: document.getElementById("previewAutoFitBtn"),
+  focusPreviewBtn: document.getElementById("focusPreviewBtn"),
   openMarketplaceFromPreviewBtn: document.getElementById("openMarketplaceFromPreviewBtn"),
 
   summaryTitle: document.getElementById("summaryTitle"),
@@ -12710,6 +12833,10 @@ function bindEvents() {
     queuePreviewRefresh();
   });
 
+  safeOn(refs.focusPreviewBtn, "click", () => {
+    togglePreviewFocus();
+  });
+
   safeOn(refs.openMarketplaceFromPreviewBtn, "click", () => {
     setOverlayState("marketplace", true);
   });
@@ -12794,9 +12921,37 @@ function onGlobalKeydown(event) {
       event.preventDefault();
       if (refs.applyBtn) refs.applyBtn.click();
       break;
+    case "e":
+      event.preventDefault();
+      togglePreviewFocus();
+      break;
     default:
       break;
   }
+}
+
+function togglePreviewFocus() {
+  setPreviewFocus(!refs.workspace.classList.contains("is-preview-focus"));
+}
+
+function setPreviewFocus(isFocused) {
+  if (!refs.workspace) {
+    return;
+  }
+
+  refs.workspace.classList.toggle("is-preview-focus", Boolean(isFocused));
+
+  if (refs.focusPreviewBtn) {
+    refs.focusPreviewBtn.classList.toggle("is-active", Boolean(isFocused));
+    refs.focusPreviewBtn.setAttribute("aria-pressed", String(Boolean(isFocused)));
+    refs.focusPreviewBtn.title = isFocused ? "Exit preview focus (E)" : "Focus preview (E)";
+    const label = refs.focusPreviewBtn.querySelector("[data-focus-label]");
+    if (label) {
+      label.textContent = isFocused ? "Exit Focus" : "Focus";
+    }
+  }
+
+  queuePreviewRefresh();
 }
 
 function bindPdfLabEvents() {
@@ -14255,6 +14410,7 @@ function syncActionButtons() {
   refs.previewZoomOutBtn.disabled = !hasActive;
   refs.previewZoomInBtn.disabled = !hasActive;
   refs.previewAutoFitBtn.disabled = !hasActive;
+  refs.focusPreviewBtn.disabled = !hasActive;
 
   const selected = getSelectedProtocol();
   refs.openMarketplaceFromPreviewBtn.disabled = !selected;
